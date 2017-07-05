@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import request from 'superagent';
 
 import { hostName } from './App.js';
-import { store } from './App.js';
+import { store } from './Store.js';
 import { imagesPerPage } from './App.js';
 
 import ImageClass from './ImageClass.js';
@@ -39,10 +39,9 @@ class Images extends Component{
             var blob = null;
             var xhr = new XMLHttpRequest();
             xhr.open("GET", getImageUrl);
-            xhr.responseType = "blob";//force the HTTP response, response-type header to be blob
-            xhr.onload = function()
-            {
-                blob = xhr.response;//xhr.response is now a blob object
+            xhr.responseType = "blob";
+            xhr.onload = function() {
+                blob = xhr.response;
                 if ( blob && blob.size && blob.type) {
                     var image = new ImageClass(getImageUrl, element, blob.size, blob.type);
                     store.dispatch({
@@ -50,6 +49,11 @@ class Images extends Component{
                         image: image
                     })
                 }
+            }
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status !== 200){ 
+                    alert("Cannot download avatar from " + getImageUrl);
+                } 
             }
             xhr.send();
             return element;

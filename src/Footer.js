@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 
-import { store } from './App.js';
+import { store } from './Store.js';
 
 class Footer extends Component {
     render() {
