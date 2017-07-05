@@ -24,13 +24,16 @@ const IP = "localhost"
 //PORT - host Port
 const PORT = "8080"
 
+//AMOUNT - amount of avatars
+var AMOUNT = 100
+
 func setHeaders(w http.ResponseWriter, req *http.Request) http.ResponseWriter {
 	w.Header().Set("Content-Type", "application/json")
 	var origin = req.Header.Get("Origin")
 	w.Header().Set("Access-Control-Allow-Origin", origin)
 	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 	w.Header().Set("Access-Control-Allow-Headers",
-		"Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, nickname")
+		"Content-Type, Content-Length, Accept-Encoding")
 	w.Header().Set("Allow", "*")
 	return w
 }
@@ -64,17 +67,15 @@ func saveImages(amount int) {
 	getListResponse, _ := http.Get("http://api.adorable.io/avatars/list")
 	dec := json.NewDecoder(getListResponse.Body)
 	dec.Decode(&data)
-	fmt.Println(data.Face.Eyes)
 	for amount > 0 {
+		amount--
 		eyes := data.Face.Eyes[rand.Intn(len(data.Face.Eyes))]
 		nose := data.Face.Nose[rand.Intn(len(data.Face.Nose))]
 		mouth := data.Face.Mouth[rand.Intn(len(data.Face.Mouth))]
 		color := strconv.Itoa(rand.Intn(9)) + strconv.Itoa(rand.Intn(9)) + strconv.Itoa(rand.Intn(9))
 		getRandomImgURL := startString + eyes + "/" + nose + "/" + mouth + "/" + color
-		fmt.Println(getRandomImgURL)
 		getImageResponse, _ := http.Get(getRandomImgURL)
-		fmt.Println(getImageResponse)
-		amount -= 1
+		fmt.Printf("\rDownload avatars %d/%d", AMOUNT-amount, AMOUNT)
 		imgData, err := ioutil.ReadAll(getImageResponse.Body)
 		if err != nil {
 			log.Fatalf("ioutil.ReadAll -> %v", err)
@@ -95,24 +96,38 @@ func listFiles() []string {
 	return list
 }
 
-func main() {
-	rand.Seed(time.Now().Unix())
-	if len(os.Args) > 1 {
-		if os.Args[1] == "save" {
-			saveImages(100)
+func executeArguments() {
+	if len(os.Args) > 2 {
+		if amount, err := strconv.Atoi(os.Args[2]); err == nil {
+			AMOUNT = amount
 		}
 	}
+	if len(os.Args) > 1 {
+		if os.Args[1] == "save" {
+			saveImages(AMOUNT)
+		}
+	}
+}
+
+func main() {
+	rand.Seed(time.Now().Unix())
+
+	executeArguments()
+
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowCredentials: true,
 	})
+
 	var imagesFolder string
 	flag.StringVar(&imagesFolder, "images", ".", "the directory to serve static files from.")
 	flag.Parse()
+
 	r := mux.NewRouter()
 	api := r.PathPrefix("/api/").Subrouter()
 	api.Handle("/getImagesList", ImageListHandler)
 	r.PathPrefix("/images").Handler(c.Handler(http.FileServer(http.Dir(imagesFolder))))
+
 	srv := &http.Server{
 		Handler: handlers.LoggingHandler(os.Stdout, r),
 		Addr:    IP + ":" + PORT,
@@ -120,6 +135,7 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
+	fmt.Println("\nStart serving at " + IP + ":" + PORT)
 
 	log.Fatal(srv.ListenAndServe())
 }
